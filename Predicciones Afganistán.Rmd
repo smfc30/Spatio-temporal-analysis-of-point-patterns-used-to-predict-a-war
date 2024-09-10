@@ -1,0 +1,480 @@
+---
+title: "Trabajo Fin de Máster (predicciones Afganistán)"
+author: "Sandra Martín-Forero Cogolludo"
+date: "17/7/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r datos}
+library(spatstat)
+
+bw_scott <- lapply(Afghan.pp, bw.scott)
+bw_ppl <- lapply(Afghan.pp, bw.ppl)
+bw_CvL <- lapply(Afghan.pp, bw.CvL)
+```
+
+```{r medias scott}
+bw_scott_1 <- do.call(rbind,bw_scott)
+bw_scott_1 <- apply(bw_scott_1, 2, median)
+```
+
+```{r medias ppl}
+bw_ppl_1 <- median(unlist(bw_ppl))
+```
+
+```{r medias cvl}
+bw_CvL_1 <- median(unlist(bw_CvL))
+```
+
+```{r función de densidad ppl}
+int_ppl <- list()
+for (i in 1:72) {
+  int_ppl[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=bw_ppl_1,
+                           leaveoneout = FALSE,
+                           diggle = TRUE,
+                           positive = TRUE)
+}
+```
+
+```{r función de densidad scott}
+int_scott <- list()
+for (i in 1:72) {
+  int_scott[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=bw_scott_1,
+                           leaveoneout = FALSE,
+                           diggle = TRUE,
+                           positive = TRUE)
+}
+```
+
+```{r función de densidad cvl}
+int_CvL <- list()
+for (i in 1:72) {
+  int_CvL[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=bw_CvL_1,
+                           leaveoneout = FALSE,
+                           diggle = TRUE,
+                           positive = TRUE)
+}
+```
+
+```{r raster para scott}
+library(raster)
+int_scott_raster <- lapply(int_scott, raster)
+int_scott_raster <- stack(int_scott_raster)
+
+int_scott_raster <- int_scott_raster*10^9
+```
+
+```{r raster para ppl}
+int_ppl_raster <- lapply(int_ppl, raster)
+int_ppl_raster <- stack(int_ppl_raster)
+
+int_ppl_raster <- int_ppl_raster*10^9
+```
+
+```{r raster para cvl}
+int_CvL_raster <- lapply(int_CvL, raster)
+int_CvL_raster <- stack(int_CvL_raster)
+
+int_CvL_raster <- int_CvL_raster*10^9
+```
+
+```{r mapa scott}
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_scott_raster) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_scott_58.png", width = 3800, height = 1660)
+spplot(int_scott_raster[[58]],
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+
+```{r mapa ppl}
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_ppl_raster) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_ppl.png", width = 3800, height = 1660)
+spplot(int_ppl_raster,
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+
+```{r mapa CvL}
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_CvL_raster) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_CvL.png", width = 3800, height = 1660)
+spplot(int_CvL_raster,
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+
+```{r media geométrica método CvL y ploteo de mapas}
+
+geom_bw_CvL_comun <- do.call(rbind, bw_CvL)
+exp(mean(log(geom_bw_CvL_comun)))
+geom_bw_CvL_comun = c(exp(mean(log(geom_bw_CvL_comun))))
+                      
+int_CvL_1 <- list()
+for (i in 1:72) {
+  int_CvL_1[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=geom_bw_CvL_comun,
+                           diggle = TRUE,
+                           positive = TRUE)
+}                     
+
+int_CvL_raster_geom <- lapply(int_CvL_1, raster)
+int_CvL_raster_geom <- stack(int_CvL_raster_geom)
+
+int_CvL_raster_geom <- int_CvL_raster_geom*10^9
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_CvL_raster_geom) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_CvL_geom.png", width = 3800, height = 1660)
+spplot(int_CvL_raster_geom,
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+
+```{r media geométrica con scott y ploteo de mapas}
+geom_bw_scott_comun <- do.call(rbind, bw_scott)
+
+exp(mean(log(geom_bw_scott_comun[,1])))
+exp(mean(log(geom_bw_scott_comun[,2])))
+
+geom_bw_scott_comun = c(exp(mean(log(geom_bw_scott_comun[,1]))), exp(mean(log(geom_bw_scott_comun[,2]))))
+
+int_scott_1 <- list()
+for (i in 1:72) {
+  int_scott_1[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=geom_bw_scott_comun,
+                           leaveoneout = FALSE,
+                           diggle = TRUE,
+                           positive = TRUE)
+}
+
+int_scott_raster_geom <- lapply(int_scott_1, raster)
+int_scott_raster_geom <- stack(int_scott_raster_geom)
+
+int_scott_raster_geom <- int_scott_raster_geom*10^9
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_scott_raster_geom) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_scott_geom.png", width = 3800, height = 1660)
+spplot(int_scott_raster_geom,
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+
+```{r media geométrica con ppl y ploteo de mapas}
+geom_bw_ppl_comun <- do.call(rbind, bw_ppl)
+exp(mean(log(geom_bw_ppl_comun)))
+geom_bw_ppl_comun = c(exp(mean(log(geom_bw_ppl_comun))))
+                      
+int_ppl_1 <- list()
+for (i in 1:72) {
+  int_ppl_1[[i]] <- density.ppp(Afghan.pp[[i]],
+                           sigma=geom_bw_ppl_comun,
+                           leaveoneout = FALSE,
+                           diggle = TRUE,
+                           positive = TRUE)
+}                     
+
+int_ppl_raster_geom <- lapply(int_ppl_1, raster)
+int_ppl_raster_geom <- stack(int_ppl_raster_geom)
+
+int_ppl_raster_geom <- int_ppl_raster_geom*10^9
+
+names <- expand.grid(month.name,c(2004:2009))
+names(int_ppl_raster_geom) <- paste(names[,1],"/",names[,2])
+
+png("Afghanint_ppl_geom.png", width = 3800, height = 1660)
+spplot(int_ppl_raster_geom,
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+dev.off()
+```
+```{r obtención de función K Scott}
+en_scott = list()
+for (i in 1:72) {
+  dd_scott <- density.ppp(Afghan.pp[[i]], bw.scott, leaveoneout = TRUE)
+en_scott[[i]] <- envelope(Afghan.pp[[i]], fun = Kinhom, correction = "border",
+nsim = 199, nrank = 5, simulate = expression(rpoispp(dd_scott)), sigma =
+bw.scott, normpower = 2)
+}
+
+```
+
+```{r obtención función K a partir de CvL}
+en_CvL = list()
+for (i in 1:72) {
+  dd_CvL <- density.ppp(Afghan.pp[[i]], bw.CvL, leaveoneout = TRUE)
+en_CvL[[i]] <- envelope(Afghan.pp[[i]], fun = Kinhom, correction = "border",
+nsim = 199, nrank = 5, simulate = expression(rpoispp(dd_CvL)), sigma =
+bw.CvL, normpower = 2)
+}
+```
+
+```{r obtención de función K con ppl}
+dd_ppl <- density.ppp(Afghan.pp[[i]], bw.ppl, leaveoneout = TRUE,
+positive =TRUE)
+
+en_ppl = list()
+
+
+for (i in 1:72) {dd_pp1 <- density.ppp(Afghan.pp[[i]], bw.ppl, leaveoneout = TRUE,
+positive =TRUE)
+
+  
+en_ppl[[i]] <- envelope(Afghan.pp[[i]], fun = Kinhom, correction = "border",
+nsim = 199, nrank = 5, simulate = expression(rpoispp(dd_ppl)), sigma =
+bw.ppl, normpower = 2)
+}
+```
+```{r}
+en_ppl = list()
+for (i in 1:72) {
+  dd_ppl <- density.ppp(Afghan.pp[[i]], bw.ppl, leaveoneout = TRUE)
+en_ppl[[i]] <- envelope(Afghan.pp[[i]], fun = Kinhom, correction = "border",
+nsim = 199, nrank = 5, simulate = expression(rpoispp(dd_ppl)), sigma =
+bw.ppl, normpower = 2)
+}
+```
+
+
+```{r representaciones función k para CvL}
+for (i in 1:72) {plot(en_CvL[[i]])}
+plot(en_CvL[[68]])
+```
+
+```{r representación función k scott}
+for (i in 1:72) {plot(en_scott[[i]])}
+plot(en_scot[[68]])
+```
+
+```{r para comparar representaciones}
+par(mfrow=c(1,2),mar=c(6,2,2,2))
+plot(int_scott_raster_geom[[58]],
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+
+plot(int_scott_raster[[58]],col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+
+     
+par(mfrow=c(1,2),mar=c(6,2,2,2))
+plot(int_CvL_raster_geom[[58]],
+       col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+
+plot(int_CvL_raster[[58]],col.regions=rev(terrain.colors(100)),
+       colorkey=list(labels=list(cex=3)), 
+       scales=list(draw=F),
+       par.strip.text=list(cex=3),
+       names.attr=paste(names[,1],"/",names[,2])
+)
+
+```
+  
+```{r funciones k para Scott}
+png("Función K 2004 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 1:12) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2005 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 13:24) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2006 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 25:36) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2007 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 37:48) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2008 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 49:60) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2009 c.Scott.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 61:72) {
+  plot(en_scott[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+```
+
+```{r funciones k para ppl}
+png("Función K 2004 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 1:12) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2005 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 13:24) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2006 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 25:36) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2007 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 37:48) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2008 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 49:60) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2009 c.ppl.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 61:72) {
+  plot(en_ppl[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+```
+
+```{r funciones k para CvL}
+png("Función K 2004 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 1:12) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2005 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 13:24) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2006 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 25:36) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2007 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 37:48) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2008 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 49:60) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+
+png("Función K 2009 c.CvL.png", width = 2000, height = 2000)
+par(mfrow = c(4,3),mar=rep(6,4))
+for (i in 61:72) {
+  plot(en_CvL[[i]], main = "", col="purple",
+       lwd = 3, cex.axis = 2, cex.lab = 2, legendargs = list(cex=2))
+}
+dev.off()
+```
